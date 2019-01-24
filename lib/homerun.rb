@@ -7,17 +7,26 @@ module Homerun
   class Instruction
     include Singleton
 
-    attr_reader :steps, :context
+    attr_reader :steps, :context, :result
 
     def initialize
       super
 
       @steps = []
       @context = {}
+      @result = true
     end
 
     def add_step(step)
       @steps << step
+    end
+
+    def set_context(ctx)
+      @context = ctx.dup
+    end
+
+    def set_result(val)
+      @result = val
     end
 
     def self.step(item, failure: nil, success: nil, name: nil)
@@ -25,7 +34,7 @@ module Homerun
     end
 
     def self.call(ctx)
-      @context = ctx.dup
+      instance.set_context(ctx)
 
       cur = 0
 
@@ -48,10 +57,13 @@ module Homerun
             cur = pos.call(step[:failure])
             next
           else
+            set_result(false)
             cur = instance.steps.count
           end
         end
       end
+
+      result
     end
   end
 end
