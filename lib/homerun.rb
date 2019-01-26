@@ -1,5 +1,6 @@
 require "homerun/version"
 require 'singleton'
+require 'pry'
 
 module Homerun
   class Error < StandardError; end
@@ -7,34 +8,33 @@ module Homerun
   class Instruction
     include Singleton
 
-    attr_reader :steps, :context, :result
+    attr_reader :steps, :ctx
 
     def initialize
       super
 
       @steps = []
-      @context = {}
-      @result = true
+      @ctx = { _pass: true }
     end
 
     def add_step(step)
       @steps << step
     end
 
-    def set_context(ctx)
-      @context = ctx.dup
+    def set_ctx(_ctx)
+      @ctx = { **ctx, **_ctx }
     end
 
-    def set_result(val)
-      @result = val
+    def set_pass(val)
+      @ctx[:_pass] = val
     end
 
     def self.step(item, failure: nil, success: nil, name: nil)
       instance.add_step({ item: item, failure: failure, success: success, name: name })
     end
 
-    def self.call(ctx)
-      instance.set_context(ctx)
+    def self.call(_ctx)
+      instance.set_ctx(_ctx)
 
       cur = 0
 
@@ -45,7 +45,7 @@ module Homerun
           instance.steps.index(instance.steps.find { |x| x[:name] == _name })
         }
 
-        if step[:item].call(instance.context)
+        if step[:item].call(instance.ctx)
           if step[:success]
             cur = pos.call(step[:success])
             next
@@ -57,13 +57,17 @@ module Homerun
             cur = pos.call(step[:failure])
             next
           else
-            set_result(false)
+            instance.set_pass(false)
             cur = instance.steps.count
           end
         end
       end
 
-      result
+      if block_given?
+        yield(instance.ctx) if instance.ctx[:_pass]
+      end
+
+      instance.ctx
     end
   end
 end
